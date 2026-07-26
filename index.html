@@ -9,21 +9,24 @@
 <head>
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>VenaFlow — Bernoulli Split-Manifold Simulator</title>
+<title>VenaSplit — Multi-Throat & Cavitation Dynamics Simulator</title>
 <style>
   *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  
   :root {
-    --bg:       #0b0f1a;
-    --surface:  #111827;
-    --surface2: #1a2235;
-    --border:   #1e2d45;
-    --accent:   #38bdf8;
-    --accent2:  #f97316;
-    --text:     #e2e8f0;
+    --bg:       #f8fafc;
+    --surface:  #ffffff;
+    --surface2: #f1f5f9;
+    --border:   #e2e8f0;
+
+    --accent:   #733ca1;
+
+    --text:     #0f172a;
     --muted:    #64748b;
-    --green:    #34d399;
-    --red:      #f87171;
-  }
+
+    --green:    #16a34a;
+    --red:      #dc2626;
+}
   body {
     background: var(--bg);
     color: var(--text);
@@ -45,6 +48,25 @@
     font-family: 'Courier New', monospace; max-width: 680px; width: 100%;
   }
   .equation b { color: var(--accent); }
+
+  /* ── CAVITATION BANNER ── */
+  .cavitation-banner {
+    display: none;
+    max-width: 960px; width: 100%;
+    background: #7f1d1d; color: #fff;
+    border: 1px solid #dc2626; border-radius: 8px;
+    padding: 9px 14px; margin-bottom: 14px;
+    font-size: .78rem; font-weight: 700; letter-spacing: .04em;
+    text-align: center; align-items: center; justify-content: center; gap: 8px;
+    box-shadow: 0 0 18px rgba(220,38,38,.55);
+    animation: cavFlash 0.85s ease-in-out infinite;
+  }
+  .cavitation-banner.active { display: flex; }
+  @keyframes cavFlash {
+    0%, 100% { background: #7f1d1d; box-shadow: 0 0 8px rgba(220,38,38,.35); }
+    50%      { background: #dc2626; box-shadow: 0 0 22px rgba(220,38,38,.85); }
+  }
+
   .main { display: flex; gap: 16px; width: 100%; max-width: 960px; align-items: flex-start; flex-wrap: wrap; }
 
   /* ── PANEL ── */
@@ -64,12 +86,13 @@
   .throat-btns button.active { background: rgba(56,189,248,.12); border-color: var(--accent); color: var(--accent); box-shadow: 0 0 8px rgba(56,189,248,.2); }
   .metrics { margin-top: 18px; display: flex; flex-direction: column; gap: 9px; }
   .metric { background: var(--surface2); border: 1px solid var(--border); border-radius: 7px; padding: 9px 11px; }
+  .metric.warn { border-color: var(--red); box-shadow: 0 0 8px rgba(220,38,38,.25); }
   .metric-label { font-size: .62rem; color: var(--muted); letter-spacing: .08em; text-transform: uppercase; margin-bottom: 2px; }
   .metric-value { font-size: 1.15rem; font-weight: 700; font-family: 'Courier New', monospace; }
   .metric-unit  { font-size: .62rem; color: var(--muted); margin-left: 3px; }
 
   /* ── CANVAS ── */
-  .canvas-wrap { flex: 1; min-width: 280px; height: 500px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; position: relative; }
+  .canvas-wrap { flex: 1; min-width: 340px; height: 500px; background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; position: relative; }
   canvas { display: block; width: 100%; height: 100%; }
   .clabel { position: absolute; font-size: .58rem; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); left: 50%; transform: translateX(-50%); pointer-events: none; }
   .clabel.top { top: 8px; }
@@ -79,13 +102,15 @@
 <body>
 
 <header>
-  <h1>VenaFlow</h1>
-  <p>Bernoulli Split-Manifold Simulator &nbsp;·&nbsp; Upward Flow &nbsp;·&nbsp; N Parallel Throats</p>
+  <h1>VenaSplit</h1>
+  <p>Multi-Throat &amp; Cavitation Dynamics Simulator &nbsp;·&nbsp; Upward Flow &nbsp;·&nbsp; N Parallel Throats</p>
 </header>
 
 <div class="equation">
-  <b>P + ½ρv² = const</b> &nbsp;|&nbsp; <b>A₀v₀ = N · A₂v₂</b> &nbsp;|&nbsp; ρ = 1000 kg/m³ &nbsp;|&nbsp; upward flow
+  <b>P + ½ρv² + ρgz = const</b> &nbsp;|&nbsp; <b>A₀v₀ = N · A₂v₂</b> &nbsp;|&nbsp; ρ = 1000 kg/m³, g = 9.81 m/s² &nbsp;|&nbsp; P<sub>v</sub> = 2.34 kPa
 </div>
+
+<div class="cavitation-banner" id="cavBanner">⚠ CAVITATION — P₂ has reached vapor pressure and is clamped at 2.34 kPa ⚠</div>
 
 <div class="main">
   <!-- CONTROLS -->
@@ -102,6 +127,10 @@
     <div class="ctrl-group">
       <label>Inlet velocity v₀ <span id="v0v">3.0 m/s</span></label>
       <input type="range" id="v0" min="1" max="10" value="3" step="0.5">
+    </div>
+    <div class="ctrl-group">
+      <label>Elevation Δz (inlet→throat) <span id="dzv">2.0 m</span></label>
+      <input type="range" id="dz" min="0" max="10" value="2" step="0.5">
     </div>
     <div class="ctrl-group">
       <label>Throats N <span id="nv">1</span></label>
@@ -122,9 +151,9 @@
         <div class="metric-label">Main pressure P₀</div>
         <div class="metric-value" id="mp0" style="color:var(--accent)">—<span class="metric-unit">kPa</span></div>
       </div>
-      <div class="metric">
+      <div class="metric" id="mp2wrap">
         <div class="metric-label">Throat pressure P₂</div>
-        <div class="metric-value" id="mp2" style="color:var(--accent2)">—<span class="metric-unit">kPa</span></div>
+        <div class="metric-value" id="mp2" style="color:var(--accent)">—<span class="metric-unit">kPa</span></div>
       </div>
       <div class="metric">
         <div class="metric-label">Pressure drop ΔP</div>
@@ -145,11 +174,15 @@
 const canvas = document.getElementById('c');
 const ctx    = canvas.getContext('2d');
 const RHO    = 1000;
+const G      = 9.81;
 const P_REF  = 200000;
+const P_V    = 2340; // vapor pressure of water, Pa (2.34 kPa)
 
-let N         = 1;
-let particles = [];
-let frame     = 0;
+let N          = 1;
+let particles  = [];
+let bubbles    = [];
+let frame      = 0;
+let cavitating = false;
 
 // Polyfill for rounded rects for maximum browser compatibility
 function fillRoundedRect(x, y, w, h, r) {
@@ -166,11 +199,21 @@ function getVals() {
   const d0 = +document.getElementById('d0').value;
   const d2 = +document.getElementById('d2').value;
   const v0 = +document.getElementById('v0').value;
+  const dz = +document.getElementById('dz').value;
   const A0 = Math.PI * (d0 / 2) ** 2;
   const A2 = Math.PI * (d2 / 2) ** 2;
   const v2 = v0 * A0 / (N * A2);
-  const dP = 0.5 * RHO * (v2 * v2 - v0 * v0);
-  return { d0, d2, v0, v2, P0: P_REF, P2: P_REF - dP, dP };
+
+  // Bernoulli with elevation gain to the throat:
+  // P0 + ½ρv0² = P2 + ½ρv2² + ρgΔz  =>  P2 = P0 + ½ρ(v0²-v2²) - ρgΔz
+  const P0 = P_REF;
+  const P2_raw = P0 + 0.5 * RHO * (v0 * v0 - v2 * v2) - RHO * G * dz;
+
+  const cavitate = P2_raw < P_V;
+  const P2 = cavitate ? P_V : P2_raw;
+  const dP = P0 - P2;
+
+  return { d0, d2, v0, dz, v2, P0, P2, P2_raw, dP, cavitate };
 }
 
 function setN(n) {
@@ -179,6 +222,7 @@ function setN(n) {
   document.querySelectorAll('.throat-btns button').forEach((b, i) =>
     b.classList.toggle('active', i + 1 === n));
   particles = [];
+  bubbles = [];
 }
 
 const MARGIN_FRAC  = 0.07;
@@ -200,7 +244,7 @@ function zones(H) {
   };
 }
 
-function mainR(W, d0) { return Math.min(d0 / 2 * (W * 0.12 / 40), W * 0.18); }
+function mainR(W, d0) { return Math.min(d0 / 2 * (W * 0.12 / 40), W * 0.13); }
 
 function throatR(W, d0, d2, n) {
   const mr = mainR(W, d0);
@@ -210,7 +254,7 @@ function throatR(W, d0, d2, n) {
 }
 
 function branchCXs(W, d0, d2) {
-  const cx  = W / 2;
+  const cx  = W / 2 - 60; // shift pipe left to make room for piezometer tubes
   const tr  = throatR(W, d0, d2, N);
   const GAP = 5;
   const total = N * 2 * tr + (N - 1) * GAP;
@@ -218,8 +262,10 @@ function branchCXs(W, d0, d2) {
   return Array.from({ length: N }, (_, i) => startX + i * (2 * tr + GAP));
 }
 
+function pipeCX(W) { return W / 2 - 60; }
+
 function drawPipe(W, H, d0, d2, v0, v2) {
-  const cx  = W / 2;
+  const cx  = pipeCX(W);
   const mr  = mainR(W, d0);
   const tr  = throatR(W, d0, d2, N);
   const bxs = branchCXs(W, d0, d2);
@@ -240,7 +286,7 @@ function drawPipe(W, H, d0, d2, v0, v2) {
   ctx.save();
   buildPipePath(W, H, cx, mr, tr, bxs, z, GAP);
   ctx.clip();
-  ctx.fillStyle = 'rgba(249,115,22,0.07)';
+  ctx.fillStyle = cavitating ? 'rgba(220,38,38,0.10)' : 'rgba(249,115,22,0.07)';
   ctx.fillRect(0, z.splitStart, W, z.throat);
   ctx.restore();
 
@@ -257,12 +303,13 @@ function drawPipe(W, H, d0, d2, v0, v2) {
     drawBranchWalls(W, H, cx, mr, tr, bxs, z, GAP);
   }
 
-  drawManometers(W, H, cx, mr, tr, bxs, z);
+  drawPiezometerTaps(W, H, cx, mr, tr, bxs, z);
+  drawElevationIndicator(W, H, cx, mr, z);
   drawArrows(W, H, cx, mr, tr, bxs, z, v0, v2);
 
   const tLabelY = (z.splitStart + z.splitEnd) / 2 + 4;
   const rightEdge = cx + mr + 12;
-  ctx.fillStyle = 'rgba(249,115,22,0.75)';
+  ctx.fillStyle = cavitating ? 'rgba(220,38,38,0.85)' : 'rgba(249,115,22,0.75)';
   ctx.font = '700 9px "Courier New"';
   ctx.textAlign = 'left';
   ctx.fillText(N > 1 ? `${N}× THROAT` : 'THROAT', rightEdge, tLabelY);
@@ -361,44 +408,179 @@ function drawBranchWalls(W, H, cx, mr, tr, bxs, z, GAP) {
   ctx.shadowBlur = 0;
 }
 
-function drawManometers(W, H, cx, mr, tr, bxs, z) {
-  const { P0, P2 } = getVals();
+/* Small taps on the pipe wall showing where each piezometer connects */
+function drawPiezometerTaps(W, H, cx, mr, tr, bxs, z) {
   const mainY   = z.stemBot + (H - z.stemBot) * 0.5;
   const throatY = (z.splitStart + z.splitEnd) / 2;
-
   const rightWall = cx + mr;
-  const pts = [
-    { y: mainY,   P: P0, col: '#38bdf8', lbl: 'P₀' },
-    { y: throatY, P: P2, col: '#f97316', lbl: 'P₂' },
+
+  ctx.strokeStyle = '#94a3b8';
+  ctx.lineWidth = 1.2;
+  [mainY, throatY].forEach(y => {
+    ctx.beginPath();
+    ctx.moveTo(rightWall, y);
+    ctx.lineTo(rightWall + 10, y);
+    ctx.stroke();
+  });
+}
+
+/* Schematic elevation (Δz) dimension line, drawn on the left of the pipe
+   between the inlet reference point (mainY) and throat reference point (throatY).
+   This is a SCHEMATIC scale (fixed pixel span), not 1:1 with Δz in meters —
+   the numeric label always shows the true value from the slider. */
+function drawElevationIndicator(W, H, cx, mr, z) {
+  const dz = +document.getElementById('dz').value;
+  const mainY   = z.stemBot + (H - z.stemBot) * 0.5;
+  const throatY = (z.splitStart + z.splitEnd) / 2;
+  const x = cx - mr - 34;
+
+  ctx.save();
+  ctx.strokeStyle = 'rgba(115,60,161,0.55)';
+  ctx.fillStyle   = 'rgba(115,60,161,0.85)';
+  ctx.lineWidth = 1.2;
+
+  // vertical dimension line
+  ctx.beginPath();
+  ctx.moveTo(x, mainY);
+  ctx.lineTo(x, throatY);
+  ctx.stroke();
+
+  // end caps (horizontal ticks) at inlet and throat reference heights
+  [mainY, throatY].forEach(y => {
+    ctx.beginPath();
+    ctx.moveTo(x - 5, y);
+    ctx.lineTo(x + 5, y);
+    ctx.stroke();
+  });
+
+  // arrowheads pointing outward (up at throat end, down at inlet end)
+  ctx.beginPath();
+  ctx.moveTo(x, throatY);
+  ctx.lineTo(x - 3, throatY + 6);
+  ctx.lineTo(x + 3, throatY + 6);
+  ctx.closePath();
+  ctx.fill();
+
+  ctx.beginPath();
+  ctx.moveTo(x, mainY);
+  ctx.lineTo(x - 3, mainY - 6);
+  ctx.lineTo(x + 3, mainY - 6);
+  ctx.closePath();
+  ctx.fill();
+
+  // dashed connector back to the pipe wall at each reference point
+  ctx.setLineDash([2, 2]);
+  ctx.strokeStyle = 'rgba(115,60,161,0.35)';
+  ctx.beginPath(); ctx.moveTo(x, mainY);   ctx.lineTo(cx - mr, mainY);   ctx.stroke();
+  ctx.beginPath(); ctx.moveTo(x, throatY); ctx.lineTo(cx - mr, throatY); ctx.stroke();
+  ctx.setLineDash([]);
+
+  // label, rotated to sit alongside the dimension line
+  const midY = (mainY + throatY) / 2;
+  ctx.save();
+  ctx.translate(x - 10, midY);
+  ctx.rotate(-Math.PI / 2);
+  ctx.textAlign = 'center';
+  ctx.font = '700 9px "Courier New"';
+  ctx.fillStyle = 'rgba(115,60,161,0.9)';
+  ctx.fillText('Δz = ' + dz.toFixed(1) + ' m', 0, 0);
+  ctx.restore();
+
+  ctx.restore();
+}
+
+/* ── REAL PIEZOMETRIC (GLASS TUBE) MANOMETERS ── */
+/* Height of the liquid column, h = P / (ρ g), drawn to scale in a fixed-size glass tube. */
+const TUBE_MAX_M   = 25;   // meters of head that map to the tallest tube (visual scale)
+let   tubeAnimP0    = 0;   // smoothed pixel-fill state for animation
+let   tubeAnimP2    = 0;
+
+function drawManometers(W, H) {
+  const { P0, P2, cavitate } = getVals();
+
+  const h0 = Math.max(0, P0 / (RHO * G));
+  const h2 = Math.max(0, P2 / (RHO * G));
+
+  const tubeTop    = 20;
+  const tubeBottom = H - 20;
+  const tubeH      = tubeBottom - tubeTop;
+  const tubeW      = 22;
+  const gap        = 34;
+  const baseX      = W - 92;
+
+  const tubes = [
+    { x: baseX,        h: h0, col: '#38bdf8', lbl: 'P₀', cav: false },
+    { x: baseX + gap,  h: h2, col: cavitate ? '#ef4444' : '#f97316', lbl: 'P₂', cav: cavitate },
   ];
 
-  pts.forEach(({ y, P, col, lbl }) => {
-    const ox = rightWall + 8;
-    const bH = 34, bW = 10;
-    const fH = Math.max(2, Math.min(Math.max(0, P) / P_REF, 1.2) * bH);
+  tubes.forEach((t, i) => {
+    const frac = Math.min(1, t.h / TUBE_MAX_M);
+    const fillH = frac * tubeH;
+    const liquidTopY = tubeBottom - fillH;
 
-    ctx.setLineDash([2, 2]);
-    ctx.strokeStyle = 'rgba(100,116,139,0.4)';
-    ctx.lineWidth = 0.8;
-    ctx.beginPath(); ctx.moveTo(rightWall, y); ctx.lineTo(ox + bW + 2, y); ctx.stroke();
-    ctx.setLineDash([]);
-
-    ctx.fillStyle = '#0b0f1a';
-    ctx.strokeStyle = '#1e2d45';
-    ctx.lineWidth = 0.8;
-    fillRoundedRect(ox + bW + 2, y - bH, bW, bH, 3);
-    ctx.fill(); ctx.stroke();
-
-    ctx.fillStyle = col;
-    ctx.globalAlpha = 0.75;
-    fillRoundedRect(ox + bW + 3, y - fH - 1, bW - 2, fH, 2);
+    // glass tube outline
+    ctx.save();
+    ctx.fillStyle = 'rgba(148,163,184,0.06)';
+    ctx.strokeStyle = 'rgba(148,163,184,0.55)';
+    ctx.lineWidth = 1.4;
+    fillRoundedRect(t.x - tubeW / 2, tubeTop, tubeW, tubeH, 6);
     ctx.fill();
+    ctx.stroke();
+
+    // scale ticks every 5 m
+    ctx.strokeStyle = 'rgba(148,163,184,0.35)';
+    ctx.lineWidth = 0.8;
+    ctx.font = '8px "Courier New"';
+    ctx.fillStyle = 'rgba(100,116,139,0.7)';
+    ctx.textAlign = 'right';
+    for (let m = 0; m <= TUBE_MAX_M; m += 5) {
+      const ty = tubeBottom - (m / TUBE_MAX_M) * tubeH;
+      ctx.beginPath();
+      ctx.moveTo(t.x - tubeW / 2, ty);
+      ctx.lineTo(t.x - tubeW / 2 - 3, ty);
+      ctx.stroke();
+    }
+
+    // liquid column, clipped inside the tube
+    ctx.save();
+    fillRoundedRect(t.x - tubeW / 2, tubeTop, tubeW, tubeH, 6);
+    ctx.clip();
+
+    const liquidGrad = ctx.createLinearGradient(0, liquidTopY, 0, tubeBottom);
+    liquidGrad.addColorStop(0, t.col);
+    liquidGrad.addColorStop(1, t.col + 'cc');
+    ctx.fillStyle = liquidGrad;
+    ctx.globalAlpha = 0.8;
+    ctx.fillRect(t.x - tubeW / 2, liquidTopY, tubeW, fillH + 20);
     ctx.globalAlpha = 1;
 
-    ctx.fillStyle = col;
+    // meniscus highlight
+    ctx.fillStyle = 'rgba(255,255,255,0.55)';
+    ctx.fillRect(t.x - tubeW / 2, liquidTopY, tubeW, 2);
+    ctx.restore();
+
+    // cavitation glow if this tube is at vapor pressure
+    if (t.cav) {
+      ctx.save();
+      ctx.strokeStyle = 'rgba(239,68,68,0.9)';
+      ctx.lineWidth = 2;
+      ctx.shadowColor = 'rgba(239,68,68,0.8)';
+      ctx.shadowBlur = 10 + 6 * Math.sin(frame * 0.35);
+      fillRoundedRect(t.x - tubeW / 2, tubeTop, tubeW, tubeH, 6);
+      ctx.stroke();
+      ctx.restore();
+    }
+
+    ctx.restore();
+
+    // label + numeric head value
+    ctx.textAlign = 'center';
     ctx.font = '700 9px "Courier New"';
-    ctx.textAlign = 'left';
-    ctx.fillText(lbl, ox + bW * 2 + 6, y - bH / 2 + 3);
+    ctx.fillStyle = t.col;
+    ctx.fillText(t.lbl, t.x, tubeTop - 7);
+    ctx.font = '700 8px "Courier New"';
+    ctx.fillStyle = 'rgba(100,116,139,0.9)';
+    ctx.fillText('h=' + t.h.toFixed(1) + 'm', t.x, tubeBottom + 12);
   });
 }
 
@@ -408,7 +590,7 @@ function drawArrows(W, H, cx, mr, tr, bxs, z, v0, v2) {
 
   const pts = [
     { y: mainY,   v: v0, col: '#38bdf8', x: cx },
-    { y: throatY, v: v2, col: '#f97316', x: cx },
+    { y: throatY, v: v2, col: cavitating ? '#ef4444' : '#f97316', x: cx },
   ];
 
   pts.forEach(({ y, v, col, x }) => {
@@ -431,14 +613,24 @@ function drawArrows(W, H, cx, mr, tr, bxs, z, v0, v2) {
 }
 
 function spawnParticle(W, H, d0) {
-  const cx = W / 2;
+  const cx = pipeCX(W);
   const mr = mainR(W, d0);
   const lane = (Math.random() * 2 - 1) * 0.82;
   particles.push({ x: cx + lane * mr, lane, y: H - 2, age: 0 });
 }
 
+function spawnBubble(W, H, d0, d2) {
+  const bxs = branchCXs(W, d0, d2);
+  const tr  = throatR(W, d0, d2, N);
+  const z   = zones(H);
+  const branch = Math.floor(Math.random() * N);
+  const x = bxs[branch] + (Math.random() * 2 - 1) * tr * 0.7;
+  const y = z.splitEnd - Math.random() * (z.splitEnd - z.splitStart);
+  bubbles.push({ x, y, r: 1 + Math.random() * 2, age: 0, life: 20 + Math.random() * 25 });
+}
+
 function moveParticles(W, H, d0, d2, v0, v2) {
-  const cx  = W / 2;
+  const cx  = pipeCX(W);
   const mr  = mainR(W, d0);
   const tr  = throatR(W, d0, d2, N);
   const bxs = branchCXs(W, d0, d2);
@@ -468,6 +660,16 @@ function moveParticles(W, H, d0, d2, v0, v2) {
     }
     p.age++;
   });
+
+  // cavitation bubbles: nucleate in throat(s), rise slightly, then collapse
+  bubbles = bubbles.filter(b => b.age < b.life);
+  bubbles.forEach(b => {
+    b.y -= 0.35;
+    b.age++;
+  });
+  if (cavitating && frame % 3 === 0 && bubbles.length < 40 + N * 10) {
+    spawnBubble(W, H, d0, d2);
+  }
 }
 
 function drawParticles(H) {
@@ -475,9 +677,9 @@ function drawParticles(H) {
   particles.forEach(p => {
     const inThroat = p.y >= z.splitStart && p.y <= z.splitEnd;
     const t = inThroat ? 1 : 0;
-    const cr = Math.round(56  + (249 - 56)  * t);
-    const cg = Math.round(189 + (115 - 189) * t);
-    const cb = Math.round(248 + (22  - 248) * t);
+    const cr = Math.round(56  + ((cavitating ? 239 : 249) - 56)  * t);
+    const cg = Math.round(189 + ((cavitating ? 68  : 115) - 189) * t);
+    const cb = Math.round(248 + ((cavitating ? 68  : 22)  - 248) * t);
     ctx.beginPath();
     ctx.arc(p.x, p.y, inThroat ? 2.8 : 2.0, 0, Math.PI * 2);
     ctx.fillStyle = `rgba(${cr},${cg},${cb},${Math.min(p.age / 6, 0.9)})`;
@@ -485,11 +687,32 @@ function drawParticles(H) {
   });
 }
 
-function updateMetrics(v2, P0, P2, dP) {
+function drawBubbles() {
+  bubbles.forEach(b => {
+    const lifeFrac = b.age / b.life;
+    const alpha = lifeFrac < 0.8 ? 0.85 : 0.85 * (1 - (lifeFrac - 0.8) / 0.2);
+    const r = b.r * (1 + lifeFrac * 0.6);
+    ctx.beginPath();
+    ctx.arc(b.x, b.y, r, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(239,68,68,${Math.max(0, alpha)})`;
+    ctx.fill();
+    ctx.strokeStyle = `rgba(255,180,180,${Math.max(0, alpha * 0.8)})`;
+    ctx.lineWidth = 0.6;
+    ctx.stroke();
+  });
+}
+
+function updateMetrics(v2, P0, P2, dP, cavitate) {
   document.getElementById('mv2').innerHTML = v2.toFixed(1) + '<span class="metric-unit">m/s</span>';
   document.getElementById('mp0').innerHTML = (P0/1e3).toFixed(1) + '<span class="metric-unit">kPa</span>';
-  document.getElementById('mp2').innerHTML = (P2/1e3).toFixed(1) + '<span class="metric-unit">kPa</span>';
+  document.getElementById('mp2').innerHTML = (P2/1e3).toFixed(2) + '<span class="metric-unit">kPa</span>';
   document.getElementById('mdp').innerHTML = (Math.abs(dP)/1e3).toFixed(1) + '<span class="metric-unit">kPa</span>';
+
+  document.getElementById('mp2').style.color = cavitate ? 'var(--red)' : 'var(--accent)';
+  document.getElementById('mp2wrap').classList.toggle('warn', cavitate);
+
+  const banner = document.getElementById('cavBanner');
+  banner.classList.toggle('active', cavitate);
 }
 
 function resize() {
@@ -508,7 +731,8 @@ function loop() {
   const rect = wrap.getBoundingClientRect();
   const W = rect.width, H = rect.height;
 
-  const { d0, d2, v0, v2, P0, P2, dP } = getVals();
+  const { d0, d2, v0, v2, P0, P2, dP, cavitate } = getVals();
+  cavitating = cavitate;
 
   if (frame % 2 === 0 && particles.length < 60 + N * 8) spawnParticle(W, H, d0);
   moveParticles(W, H, d0, d2, v0, v2);
@@ -516,7 +740,9 @@ function loop() {
   ctx.clearRect(0, 0, W, H);
   drawPipe(W, H, d0, d2, v0, v2);
   drawParticles(H);
-  updateMetrics(v2, P0, P2, dP);
+  drawBubbles();
+  drawManometers(W, H);
+  updateMetrics(v2, P0, P2, dP, cavitate);
 
   requestAnimationFrame(loop);
 }
@@ -532,6 +758,9 @@ document.getElementById('d2').addEventListener('input', function () {
 document.getElementById('v0').addEventListener('input', function () {
   document.getElementById('v0v').textContent = (+this.value).toFixed(1) + ' m/s';
 });
+document.getElementById('dz').addEventListener('input', function () {
+  document.getElementById('dzv').textContent = (+this.value).toFixed(1) + ' m';
+});
 window.addEventListener('resize', () => { resize(); particles = []; });
 
 resize();
@@ -539,5 +768,3 @@ loop();
 </script>
 </body>
 </html>
-
-
