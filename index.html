@@ -377,32 +377,14 @@ function drawBranchWalls(W, H, cx, mr, tr, bxs, z, GAP) {
   ctx.shadowColor = 'rgba(56,189,248,0.3)';
   ctx.shadowBlur  = 5;
 
+  // Straight vertical dividers between adjacent throats, run the full height
+  // of the manifold (top taper → throat → bottom taper) so each channel
+  // reads as a flat-walled column rather than a fork that tapers to a point.
   for (let i = 0; i < N - 1; i++) {
     const wallX = bxs[i] + tr + GAP / 2;
-    const forkTipY = z.stemTop + (z.splitStart - z.stemTop) * 0.15;
-
     ctx.beginPath();
-    ctx.moveTo(wallX, z.splitStart);
-    ctx.bezierCurveTo(
-      wallX, z.splitStart - (z.splitStart - forkTipY) * 0.4,
-      cx, forkTipY + (z.splitStart - forkTipY) * 0.25,
-      cx, forkTipY
-    );
-    ctx.stroke();
-
-    const forkBotY = z.stemBot - (z.stemBot - z.splitEnd) * 0.15;
-    ctx.beginPath();
-    ctx.moveTo(wallX, z.splitEnd);
-    ctx.bezierCurveTo(
-      wallX, z.splitEnd + (forkBotY - z.splitEnd) * 0.4,
-      cx, forkBotY - (forkBotY - z.splitEnd) * 0.25,
-      cx, forkBotY
-    );
-    ctx.stroke();
-
-    ctx.beginPath();
-    ctx.moveTo(wallX, z.splitStart);
-    ctx.lineTo(wallX, z.splitEnd);
+    ctx.moveTo(wallX, z.stemTop);
+    ctx.lineTo(wallX, z.stemBot);
     ctx.stroke();
   }
   ctx.shadowBlur = 0;
@@ -647,17 +629,28 @@ function moveParticles(W, H, d0, d2, v0, v2) {
     const speed = (v0 + (v2 - v0) * tFrac) * 0.45;
     p.y -= speed;
 
-    if (inThroat || p.y < z.splitStart + z.conv * 0.3) {
-      if ((p.branch === undefined || p.branch >= N) && N > 1) {
-        p.branch = Math.min(N - 1, Math.max(0, Math.floor((p.lane + 1) / 2 * N)));
-      }
-      const targetCX = N === 1 ? cx : bxs[p.branch ?? 0];
-      const t = Math.min(1, Math.max(0, 1 - (p.y - z.splitStart) / (z.conv)));
-      p.x = cx * (1 - t) + (targetCX + p.lane * tr) * t;
+    // Each particle's lane deterministically picks which throat channel it
+    // belongs to — no need to "discover" a branch only once it's near the
+    // throat, so there's no sudden reassignment/jump.
+    const targetCX = N === 1 ? cx : bxs[Math.min(N - 1, Math.max(0, Math.floor((p.lane + 1) / 2 * N)))];
+
+    // widthT runs smoothly 0→1→0 as the particle travels from the main pipe,
+    // through the taper, across the throat, and back out — 0 = full main-pipe
+    // half-width (mr) centered on cx, 1 = throat half-width (tr) centered on
+    // its own channel. Both position and width interpolate together, so
+    // particles glide into their lane instead of collapsing to a single x.
+    let widthT;
+    if (inThroat) {
+      widthT = 1;
+    } else if (p.y < z.splitStart) {
+      widthT = Math.max(0, Math.min(1, (p.y - z.stemTop) / z.conv));
     } else {
-      p.x = cx + p.lane * mr;
-      p.branch = undefined;
+      widthT = Math.max(0, Math.min(1, (z.stemBot - p.y) / z.divg));
     }
+
+    const halfWidth = mr + (tr - mr) * widthT;
+    const centerX   = cx + (targetCX - cx) * widthT;
+    p.x = centerX + p.lane * halfWidth;
     p.age++;
   });
 
