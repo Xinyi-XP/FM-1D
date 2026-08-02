@@ -40,12 +40,30 @@
   header { text-align: center; margin-bottom: 16px; }
   header h1 { font-size: 1.9rem; font-weight: 800; letter-spacing: .15em; color: var(--accent); text-transform: uppercase; }
   header p  { font-size: .75rem; color: var(--muted); margin-top: 3px; letter-spacing: .08em; }
+  
+  .pressure-note {
+    background: var(--surface);
+    border: 1px solid var(--border);
+    border-left: 3px solid var(--accent);
+    border-radius: 6px;
+    padding: 8px 14px;
+    margin-bottom: 16px;
+    max-width: 1060px;
+    width: 100%;
+    font-size: 0.75rem;
+    color: var(--muted);
+    line-height: 1.5;
+  }
+  .pressure-note strong {
+    color: var(--accent);
+  }
+  
   .equation {
     background: var(--surface); border: 1px solid var(--border);
     border-left: 3px solid var(--accent); border-radius: 6px;
     padding: 7px 14px; font-size: .75rem; color: var(--muted);
     text-align: center; margin-bottom: 16px;
-    font-family: 'Courier New', monospace; max-width: 680px; width: 100%;
+    font-family: 'Courier New', monospace; max-width: 1060px; width: 100%;
   }
   .equation b { color: var(--accent); }
 
@@ -106,8 +124,15 @@
   <p>Multi-Throat &amp; Cavitation Dynamics Simulator &nbsp;·&nbsp; Upward Flow</p>
 </header>
 
+<div class="pressure-note">
+  <strong>Pressure Convention:</strong> All pressures displayed and used in
+  calculations are <strong>absolute pressures (kPa abs)</strong>. Cavitation
+  occurs when the calculated throat pressure falls below the vapour pressure of
+  water (<strong>3.17 kPa abs at 25°C</strong>).
+</div>
+ 
 <div class="equation">
-  <b>P + ½ρv² + ρgz = const</b> &nbsp;|&nbsp; <b>A₀v₀ = A₂v₂</b> &nbsp;|&nbsp; ρ = 998.2 kg/m³, g = 9.81 m/s² &nbsp;|&nbsp; P<sub>vapour</sub> = 3.17 kPa
+  <b>Bernoulli's equation: P + ½ρv² + ρgz = const</b> &nbsp;|&nbsp; <b>Continuity equation: A₀v₀ = N · A₂v₂</b> &nbsp;|&nbsp; <b>ρ = 998.2 kg/m³</b>, <b>g = 9.81 m/s²</b>, <b>P<sub>vapour</sub> = 3.17 kPa</b>
 </div>
 
 <div class="cavitation-banner" id="cavBanner">⚠ CAVITATION — P₂ has reached vapour pressure and is clamped at 3.17 kPa ⚠</div>
@@ -130,10 +155,10 @@
     </div>
     <div class="ctrl-group">
       <label>Elevation Δz (inlet→throat) <span id="dzv">2.0 m</span></label>
-      <input type="range" id="dz" min="0" max="10" value="2" step="0.5">
+      <input type="range" id="dz" min="0" max="40" value="2" step="1">
     </div>
     <div class="ctrl-group">
-      <label>Throats N <span id="nv">1</span></label>
+      <label> No. of Throats, N <span id="nv">1</span></label>
       <div class="throat-btns" id="throatBtns">
         <button onclick="setN(1)" class="active">1</button>
         <button onclick="setN(2)">2</button>
@@ -144,16 +169,20 @@
     </div>
     <div class="metrics">
       <div class="metric">
-        <div class="metric-label">Throat velocity v₂</div>
-        <div class="metric-value" id="mv2" style="color:var(--red)">—<span class="metric-unit">m/s</span></div>
-      </div>
-      <div class="metric">
         <div class="metric-label">Main pressure P₀</div>
         <div class="metric-value" id="mp0" style="color:var(--accent)">—<span class="metric-unit">kPa</span></div>
+      </div>
+      <div class="metric">
+        <div class="metric-label">Throat velocity v₂</div>
+        <div class="metric-value" id="mv2" style="color:var(--red)">—<span class="metric-unit">m/s</span></div>
       </div>
       <div class="metric" id="mp2wrap">
         <div class="metric-label">Throat pressure P₂</div>
         <div class="metric-value" id="mp2" style="color:var(--accent)">—<span class="metric-unit">kPa</span></div>
+        <div style="margin-top:6px;">
+          <div class="metric-label" style="font-size:0.55rem;">Calculated pressure</div>
+          <div class="metric-value" id="mp2raw" style="font-size:0.9rem;color:var(--muted);">—<span class="metric-unit">kPa</span></div>
+        </div>
       </div>
       <div class="metric">
         <div class="metric-label">Pressure drop ΔP</div>
@@ -695,13 +724,15 @@ function drawBubbles() {
   });
 }
 
-function updateMetrics(v2, P0, P2, dP, cavitate) {
+function updateMetrics(v2, P0, P2, P2_raw, dP, cavitate) {
   document.getElementById('mv2').innerHTML = v2.toFixed(1) + '<span class="metric-unit">m/s</span>';
   document.getElementById('mp0').innerHTML = (P0/1e3).toFixed(1) + '<span class="metric-unit">kPa</span>';
   document.getElementById('mp2').innerHTML = (P2/1e3).toFixed(2) + '<span class="metric-unit">kPa</span>';
+  document.getElementById('mp2raw').innerHTML = (P2_raw/1e3).toFixed(2) + '<span class="metric-unit">kPa</span>';
   document.getElementById('mdp').innerHTML = (Math.abs(dP)/1e3).toFixed(1) + '<span class="metric-unit">kPa</span>';
 
   document.getElementById('mp2').style.color = cavitate ? 'var(--red)' : 'var(--accent)';
+  document.getElementById('mp2raw').style.color = cavitate ? 'var(--red)' : 'var(--muted)';
   document.getElementById('mp2wrap').classList.toggle('warn', cavitate);
 
   const banner = document.getElementById('cavBanner');
@@ -724,7 +755,7 @@ function loop() {
   const rect = wrap.getBoundingClientRect();
   const W = rect.width, H = rect.height;
 
-  const { d0, d2, v0, v2, P0, P2, dP, cavitate } = getVals();
+  const { d0, d2, v0, v2, P0, P2, P2_raw, dP, cavitate } = getVals();
   cavitating = cavitate;
 
   if (frame % 2 === 0 && particles.length < 60 + N * 8) spawnParticle(W, H, d0);
@@ -735,7 +766,7 @@ function loop() {
   drawParticles(H);
   drawBubbles();
   drawManometers(W, H);
-  updateMetrics(v2, P0, P2, dP, cavitate);
+  updateMetrics(v2, P0, P2, P2_raw, dP, cavitate);
 
   requestAnimationFrame(loop);
 }
