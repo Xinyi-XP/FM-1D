@@ -815,8 +815,8 @@ function updateMetrics(v2, P0, P2, P2_raw, dP, cavitate) {
 }
 
 const PARAM_META = {
-  d2: { label: 'Throat diameter D₂', unit: 'mm',  min: 100,  max: 600, fmt: v => v.toFixed(0) },
-  d0: { label: 'Main diameter D₀',   unit: 'mm',  min: 50, max: 100, fmt: v => v.toFixed(0) },
+  d2: { label: 'Throat diameter D₂', unit: 'mm',  min: 50,  max: 100, fmt: v => v.toFixed(0) },
+  d0: { label: 'Main diameter D₀',   unit: 'mm',  min: 100, max: 600, fmt: v => v.toFixed(0) },
   v0: { label: 'Inlet velocity v₀',  unit: 'm/s', min: 1,  max: 10, fmt: v => v.toFixed(1) },
   dz: { label: 'Elevation Δz',       unit: 'm',   min: 0,  max: 40, fmt: v => v.toFixed(1) },
   n:  { label: 'Throats N',          unit: '',    min: 1,  max: 5,  fmt: v => v.toFixed(0) },
