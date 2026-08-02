@@ -103,14 +103,14 @@
 
 <header>
   <h1>VenaSplit</h1>
-  <p>Multi-Throat &amp; Cavitation Dynamics Simulator &nbsp;·&nbsp; Upward Flow &nbsp;·&nbsp; N Parallel Throats</p>
+  <p>Multi-Throat &amp; Cavitation Dynamics Simulator &nbsp;·&nbsp; Upward Flow</p>
 </header>
 
 <div class="equation">
-  <b>P + ½ρv² + ρgz = const</b> &nbsp;|&nbsp; <b>A₀v₀ = N · A₂v₂</b> &nbsp;|&nbsp; ρ = 1000 kg/m³, g = 9.81 m/s² &nbsp;|&nbsp; P<sub>v</sub> = 2.34 kPa
+  <b>P + ½ρv² + ρgz = const</b> &nbsp;|&nbsp; <b>A₀v₀ = A₂v₂</b> &nbsp;|&nbsp; ρ = 998.2 kg/m³, g = 9.81 m/s² &nbsp;|&nbsp; P<sub>vapour</sub> = 3.17 kPa
 </div>
 
-<div class="cavitation-banner" id="cavBanner">⚠ CAVITATION — P₂ has reached vapor pressure and is clamped at 2.34 kPa ⚠</div>
+<div class="cavitation-banner" id="cavBanner">⚠ CAVITATION — P₂ has reached vapour pressure and is clamped at 3.17 kPa ⚠</div>
 
 <div class="main">
   <!-- CONTROLS -->
@@ -173,9 +173,9 @@
 <script>
 const canvas = document.getElementById('c');
 const ctx    = canvas.getContext('2d');
-const RHO    = 1000;
+const RHO    = 998.2; // density at room temperature
 const G      = 9.81;
-const P_REF  = 250000;
+const P_REF  = 350000; // absolute inlet pressure
 const P_V    = 3170; // vapor pressure of water at 25 degrees Celsius (3.17 kPa)
 
 let N          = 1;
