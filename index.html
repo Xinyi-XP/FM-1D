@@ -975,6 +975,9 @@ function loop() {
   const rect = wrap.getBoundingClientRect();
   const W = rect.width, H = rect.height;
 
+  const vals = getVals();
+  console.log(vals);
+ 
   const { d0, d2, v0, v2, P0, P2, P2_raw, dP, cavitate } = getVals();
   cavitating = cavitate;
 
