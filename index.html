@@ -149,33 +149,33 @@
 </div>
  
 <div class="equation">
-  <b>Bernoulli's equation: P + ½ρv² + ρgz = const</b> &nbsp;|&nbsp; <b>Continuity equation: A₀v₀ = N · A₂v₂</b> &nbsp;|&nbsp; <b>ρ = 998.2 kg/m³</b>, <b>g = 9.81 m/s²</b>, <b>P<sub>vapour</sub> = 3.17 kPa</b>
+  <b>Bernoulli's equation: P + ½ρv² + ρgz = const</b> &nbsp;|&nbsp; <b>Continuity equation: A₀v₀ = N · A₂v₂</b> &nbsp;|&nbsp; <b>ρ = 998.2 kg/m³</b>, <b>g = 9.81 m/s²</b>, <b>P<sub>vapour</sub> = 3.17 kPa abs</b>
 </div>
 
-<div class="cavitation-banner" id="cavBanner">⚠ CAVITATION — P₂ has reached vapour pressure and is clamped at 3.17 kPa ⚠</div>
+<div class="cavitation-banner" id="cavBanner">⚠ CAVITATION — P₂ has reached vapour pressure and is clamped at 3.17 kPa abs ⚠</div>
 
 <div class="main">
   <!-- CONTROLS -->
   <div class="panel">
     <h2>Parameters</h2>
     <div class="ctrl-group">
-      <label>Main diameter D₀ <span id="d0v">56 mm</span></label>
+      <label>Basement Main D₀ <span id="d0v">56 mm</span></label>
       <input type="range" id="d0" min="30" max="80" value="56" step="1">
     </div>
     <div class="ctrl-group">
-      <label>Throat diameter D₂ <span id="d2v">18 mm</span></label>
+      <label>Riser Valve D₂ <span id="d2v">18 mm</span></label>
       <input type="range" id="d2" min="8" max="35" value="18" step="1">
     </div>
     <div class="ctrl-group">
-      <label>Inlet velocity v₀ <span id="v0v">3.0 m/s</span></label>
+      <label>Peak Demand Velocity v₀ <span id="v0v">2.0 m/s</span></label>
       <input type="range" id="v0" min="1" max="10" value="3" step="0.5">
     </div>
     <div class="ctrl-group">
-      <label>Elevation Δz (inlet→throat) <span id="dzv">2.0 m</span></label>
+      <label>Building Elevation Δz (inlet→throat) <span id="dzv">2.0 m</span></label>
       <input type="range" id="dz" min="0" max="40" value="2" step="1">
     </div>
     <div class="ctrl-group">
-      <label> No. of Throats, N <span id="nv">1</span></label>
+      <label> Active Riser Lines, N <span id="nv">1</span></label>
       <div class="throat-btns" id="throatBtns">
         <button onclick="setN(1)" class="active">1</button>
         <button onclick="setN(2)">2</button>
@@ -187,7 +187,7 @@
     <div class="metrics">
       <div class="metric">
         <div class="metric-label">Main pressure P₀</div>
-        <div class="metric-value" id="mp0" style="color:var(--accent)">—<span class="metric-unit">kPa</span></div>
+        <div class="metric-value" id="mp0" style="color:var(--accent)">—<span class="metric-unit">kPa abs</span></div>
       </div>
       <div class="metric">
         <div class="metric-label">Throat velocity v₂</div>
@@ -195,15 +195,15 @@
       </div>
       <div class="metric" id="mp2wrap">
         <div class="metric-label">Throat pressure P₂</div>
-        <div class="metric-value" id="mp2" style="color:var(--accent)">—<span class="metric-unit">kPa</span></div>
+        <div class="metric-value" id="mp2" style="color:var(--accent)">—<span class="metric-unit">kPa abs</span></div>
         <div style="margin-top:6px;">
           <div class="metric-label" style="font-size:0.55rem;">Calculated pressure</div>
-          <div class="metric-value" id="mp2raw" style="font-size:0.9rem;color:var(--muted);">—<span class="metric-unit">kPa</span></div>
+          <div class="metric-value" id="mp2raw" style="font-size:0.9rem;color:var(--muted);">—<span class="metric-unit">kPa abs</span></div>
         </div>
       </div>
       <div class="metric">
         <div class="metric-label">Pressure drop ΔP</div>
-        <div class="metric-value" id="mdp" style="color:var(--green)">—<span class="metric-unit">kPa</span></div>
+        <div class="metric-value" id="mdp" style="color:var(--green)">—<span class="metric-unit">kPa abs</span></div>
       </div>
     </div>
   </div>
@@ -241,7 +241,7 @@ const chartCtx    = chartCanvas.getContext('2d');
 const RHO    = 998.2; // density at room temperature
 const G      = 9.81;
 const P_REF  = 350000; // absolute inlet pressure
-const P_V    = 3170; // vapour pressure of water at 25 degrees Celsius (3.17 kPa)
+const P_V    = 3170; // vapour pressure of water at 25 degrees Celsius (3.17 kPa abs)
 
 let N          = 1;
 let particles  = [];
@@ -801,10 +801,10 @@ function drawBubbles() {
 
 function updateMetrics(v2, P0, P2, P2_raw, dP, cavitate) {
   document.getElementById('mv2').innerHTML = v2.toFixed(1) + '<span class="metric-unit">m/s</span>';
-  document.getElementById('mp0').innerHTML = (P0/1e3).toFixed(1) + '<span class="metric-unit">kPa</span>';
-  document.getElementById('mp2').innerHTML = (P2/1e3).toFixed(2) + '<span class="metric-unit">kPa</span>';
-  document.getElementById('mp2raw').innerHTML = (P2_raw/1e3).toFixed(2) + '<span class="metric-unit">kPa</span>';
-  document.getElementById('mdp').innerHTML = (Math.abs(dP)/1e3).toFixed(1) + '<span class="metric-unit">kPa</span>';
+  document.getElementById('mp0').innerHTML = (P0/1e3).toFixed(1) + '<span class="metric-unit">kPa abs</span>';
+  document.getElementById('mp2').innerHTML = (P2/1e3).toFixed(2) + '<span class="metric-unit">kPa abs</span>';
+  document.getElementById('mp2raw').innerHTML = (P2_raw/1e3).toFixed(2) + '<span class="metric-unit">kPa abs</span>';
+  document.getElementById('mdp').innerHTML = (Math.abs(dP)/1e3).toFixed(1) + '<span class="metric-unit">kPa abs</span>';
 
   document.getElementById('mp2').style.color = cavitate ? 'var(--red)' : 'var(--accent)';
   document.getElementById('mp2raw').style.color = cavitate ? 'var(--red)' : 'var(--muted)';
@@ -869,7 +869,7 @@ function drawChart() {
   const xPix = v => padL + (v - meta.min) / (meta.max - meta.min) * plotW;
   const yPix = v => padT + plotH - (v - yMin) / (yMax - yMin) * plotH;
 
-  // horizontal gridlines + y-axis ticks (kPa)
+  // horizontal gridlines + y-axis ticks (kPa abs)
   c.lineWidth = 1;
   const yTicks = 5;
   for (let i = 0; i <= yTicks; i++) {
@@ -955,7 +955,7 @@ function drawChart() {
   c.translate(12, padT + plotH / 2);
   c.rotate(-Math.PI / 2);
   c.textAlign = 'center';
-  c.fillText('P₂ (kPa)', 0, 0);
+  c.fillText('P₂ (kPa abs)', 0, 0);
   c.restore();
 }
  
